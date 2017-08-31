@@ -5,13 +5,14 @@ import numpy as np
 import sys
 import schedule
 import cv2
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
-import logging
+import telegram
+import os, shutil
 
 sys.path.append('/usr/local/lib/python2.7/site-packages')
 screen_size = None
 screen_start_point = None
 screen_end_point = None
+update_id = None
 
 
 # Сперва мы проверяем размер экрана и берём начальную и конечную точку для будущих скриншотов
@@ -41,6 +42,18 @@ def make_screenshot():
     return screenshot_name
 
 
+def remove_screens():
+    folder = 'screens'
+    for the_file in os.listdir(folder):
+        file_path = os.path.join(folder, the_file)
+        try:
+            if os.path.isfile(file_path):
+                os.unlink(file_path)
+            # elif os.path.isdir(file_path): shutil.rmtree(file_path)
+        except Exception as e:
+            print(e)
+
+
 def find_float(screenshot_name):
     print 'Looking for a float'
     for x in range(1, 2):
@@ -65,44 +78,27 @@ def find_float(screenshot_name):
             print 'Found float at ' + str(x)
             capcha = 'capchas/uo_session_' + str(int(time.time())) + '_success.png'
             cv2.imwrite(capcha, src_rgb)
-            return capcha
-#            return (loc[1][0] + w / 2) / 2, (loc[0][
-#                                                 0] + h / 2) / 2  # опять мы ведь помним, что макбук играется с разрешениями? поэтому снова приходится делить на 2
-    return ''
+            send_message_to_bot(capcha)
+            remove_screens()
+            return (loc[1][0] + w / 2) / 2, (loc[0][
+                                                 0] + h / 2) / 2  # опять мы ведь помним, что макбук играется с разрешениями? поэтому снова приходится делить на 2
 
 
-def bot_initializer():
-    logging.basicConfig(level=logging.DEBUG,
-                        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    updater = Updater("244382714:AAGzUf3SFmeogXjr85i1hPStZTRI-TG5gHw")
-    dispatcher = updater.dispatcher
-    start_handler = CommandHandler('start', start)
-    caps_handler = CommandHandler('caps', caps, pass_args=True)
-    dispatcher.add_handler(caps_handler)
-    dispatcher.add_handler(start_handler)
-    updater.start_polling()
-
-
-def start(bot, update):
-    schedule.every(10).seconds.do(main)
-    while 1:
-        schedule.run_pending()
-    bot.sendPhoto(chat_id=update.message.chat_id, photo=open('capchas/uo_session_1504135781_success.png', 'rb'))
-
-
-def caps(bot, update, args):
-    text_caps = ' '.join(args).upper()
-    bot.sendMessage(chat_id=update.message.chat_id, text=text_caps)
+def send_message_to_bot(image):
+    global update_id
+    # Telegram Bot Authorization Token
+    bot = telegram.Bot('244382714:AAGzUf3SFmeogXjr85i1hPStZTRI-TG5gHw')
+    chat_id = bot.get_updates()[-1].message.chat_id
+    bot.send_photo(chat_id=chat_id, photo=open(image, 'rb'))
 
 
 def main():
     check_screen_size()
     img_name = make_screenshot()
-    return find_float(img_name)
+    find_float(img_name)
 
 
 if __name__ == "__main__":
-    bot_initializer()
-    schedule.every(10).seconds.do(main)
+    schedule.every(15).seconds.do(main)
     while 1:
         schedule.run_pending()
